@@ -116,8 +116,8 @@ jobs:
           class ClawdView(ctx: Context) : View(ctx) {
 
               private val paint = Paint()
-              // одна клетка анимации (в приложении Claude клетка = 4 px на экране 2x)
-              private val s = resources.displayMetrics.density * 2.5f
+              // одна клетка в целых пикселях экрана: так между клетками нет щелей
+              private val s = Math.round(resources.displayMetrics.density * 2.5f)
 
               // O тело, D тень, G ноутбук, E глаз, . пусто
               // Clawd спереди: форма из иконки мода MargyC (12x8 пикселей, каждый пиксель = 2x2 клетки)
@@ -140,8 +140,8 @@ jobs:
                       "..DDDDOOOOOOOOOOOO.............",
                       "..DDDDOOOOOOOOOOOO.............",
                       "..DDDDOOOOOOOOOOOO.............",
-                      "..DDDDOOEEOOOOOO...............",
-                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOEEOOOOEE...............",
+                      "..DDDDOOEEOOOOEE...............",
                       "..DDDDOOOOOOOOOOOOOOO..........",
                       "..DDDDOOOOOOOOOOOOOOO..........",
                       "..DDDDOOOOOOOOOOOOOOO..........",
@@ -160,8 +160,8 @@ jobs:
                       "..DDDDOOOOOOOOOOOO.............",
                       "..DDDDOOOOOOOOOOOO.............",
                       "..DDDDOOOOOOOOOOOO.............",
-                      "..DDDDOOEEOOOOOO...............",
-                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOEEOOOOEE...............",
+                      "..DDDDOOEEOOOOEE...............",
                       "..DDDDOOOOOOOOOOOODDDD.........",
                       "..DDDDOOOOOOOOOOOODDDD.........",
                       "..DDDDOOOOOOOOOOOOOOOD.........",
@@ -180,8 +180,8 @@ jobs:
                       "..DDDDOOOOOOOOOOOO.............",
                       "..DDDDOOOOOOOOOOOO.............",
                       "..DDDDOOOOOOOOOOOO.............",
-                      "..DDDDOOEEOOOOOO...............",
-                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOEEOOOOEE...............",
+                      "..DDDDOOEEOOOOEE...............",
                       "..DDDDOOOOOOOOOOOO.............",
                       "..DDDDOOOOOOOOOOOOOOO..........",
                       "..DDDDOOOOOOOOOOOOOOOD......G..",
@@ -198,11 +198,12 @@ jobs:
 
               private var tick = 0
               private var laptopLeft = 0
+              private var jumpLeft = 0
               private var blinkLeft = 0
               private val handler = Handler(Looper.getMainLooper())
 
               fun startLaptop() {
-                  if (laptopLeft == 0) laptopLeft = 96   // около 8 секунд
+                  if (laptopLeft == 0 && jumpLeft == 0) laptopLeft = 96   // около 8 секунд
               }
 
               private val loop = object : Runnable {
@@ -210,8 +211,11 @@ jobs:
                       tick++
                       if (laptopLeft > 0) {
                           laptopLeft--
+                          if (laptopLeft == 0) jumpLeft = 42              // дописал: 2 прыжка
+                      } else if (jumpLeft > 0) {
+                          jumpLeft--
                       } else if (Random.nextInt(480) == 0) {
-                          laptopLeft = 96                // сам достаёт ноутбук примерно раз в 40 секунд
+                          laptopLeft = 96                                 // сам достаёт ноутбук раз в ~40 секунд
                       }
                       if (blinkLeft > 0) {
                           blinkLeft--
@@ -234,34 +238,44 @@ jobs:
               }
 
               override fun onMeasure(w: Int, h: Int) {
-                  setMeasuredDimension((31 * s).toInt(), (18 * s).toInt())
+                  setMeasuredDimension(31 * s, 26 * s)
               }
 
+              // один сплошной цвет тела (тень убрана), серый для ноутбука
               private fun color(ch: Char): Int = when (ch) {
-                  'O' -> 0xFFDA7756.toInt()
-                  'D' -> 0xFFB76448.toInt()
+                  'O', 'D' -> 0xFFDA7756.toInt()
                   'G' -> 0xFF938882.toInt()
                   'E' -> 0xFF111111.toInt()
                   else -> 0
               }
 
-              private fun drawGrid(c: Canvas, rows: Array<String>, x0: Float, y0: Float, cell: Float, blink: Boolean) {
+              private fun drawGrid(c: Canvas, rows: Array<String>, x0: Int, y0: Int, cell: Int, blink: Boolean) {
                   for (j in rows.indices) {
                       val row = rows[j]
                       for (i in row.indices) {
                           val ch = row[i]
                           if (ch == '.') continue
                           paint.color = if (blink && ch == 'E') color('O') else color(ch)
-                          c.drawRect(x0 + i * cell, y0 + j * cell, x0 + (i + 1) * cell, y0 + (j + 1) * cell, paint)
+                          val l = x0 + i * cell
+                          val t = y0 + j * cell
+                          c.drawRect(l.toFloat(), t.toFloat(), (l + cell).toFloat(), (t + cell).toFloat(), paint)
                       }
                   }
               }
 
               override fun onDraw(c: Canvas) {
+                  val top = 8 * s
                   if (laptopLeft > 0) {
-                      drawGrid(c, laptop[tick % 3], 0f, 0f, s, false)
+                      drawGrid(c, laptop[tick % 3], 0, top, s, false)
                   } else {
-                      drawGrid(c, front, 2f * s, 0f, 2f * s, blinkLeft > 0)
+                      var lift = 0
+                      if (jumpLeft > 0) {
+                          val phase = (42 - jumpLeft) % 21
+                          if (phase < 14) {
+                              lift = Math.round(Math.sin(Math.PI * phase / 14.0) * 8.0).toInt()
+                          }
+                      }
+                      drawGrid(c, front, 2 * s, top - lift * s, 2 * s, blinkLeft > 0)
                   }
               }
           }
