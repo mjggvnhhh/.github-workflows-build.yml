@@ -118,6 +118,8 @@ jobs:
               private val body = Paint().apply { color = 0xFFDA7756.toInt() }
               private val dark = Paint().apply { color = 0xFF111111.toInt() }
               private val red = Paint().apply { color = 0xFFE8384F.toInt() }
+              private val lap = Paint().apply { color = 0xFFB5B1A8.toInt() }
+              private val lapDark = Paint().apply { color = 0xFF8E8A82.toInt() }
               private val u = resources.displayMetrics.density * 6f
 
               // 0 обычный, 1 радостный, 2 влюблённый, 3 головокружение, 4 удивлён, 5 злой
@@ -126,12 +128,24 @@ jobs:
 
               private var step = 0
               private var blink = false
+              // -1 = ноутбука нет, 0..16 = кадры анимации с ноутбуком
+              private var laptopTick = -1
               private val handler = Handler(Looper.getMainLooper())
+
+              fun startLaptop() {
+                  if (laptopTick < 0) laptopTick = 0
+              }
 
               private val walk = object : Runnable {
                   override fun run() {
                       step = 1 - step
                       blink = Random.nextInt(6) == 0
+                      if (laptopTick >= 0) {
+                          laptopTick++
+                          if (laptopTick > 16) laptopTick = -1
+                      } else if (Random.nextInt(130) == 0) {
+                          laptopTick = 0
+                      }
                       invalidate()
                       handler.postDelayed(this, 300)
                   }
@@ -148,7 +162,7 @@ jobs:
               }
 
               override fun onMeasure(w: Int, h: Int) {
-                  setMeasuredDimension((15 * u).toInt(), (13 * u).toInt())
+                  setMeasuredDimension((16 * u).toInt(), (12 * u).toInt())
               }
 
               private fun r(c: Canvas, x: Float, y: Float, w: Float, h: Float, p: Paint) {
@@ -164,56 +178,78 @@ jobs:
               }
 
               override fun onDraw(c: Canvas) {
-                  val bob = if (step == 0) 0f else 0.5f
+                  val typing = laptopTick >= 0
+                  val bob = if (typing || step == 0) 0f else 0.5f
                   c.save()
                   c.translate(0f, bob * u)
 
-                  r(c, 2f, 0f, 11f, 9f, body)
-                  r(c, 0f, 3f, 2f, 3f, body)
-                  r(c, 13f, 3f, 2f, 3f, body)
+                  // широкое приплюснутое тело
+                  r(c, 2f, 1f, 12f, 7f, body)
 
-                  val a = if (step == 0) 3f else 2f
-                  val b = if (step == 0) 2f else 3f
-                  r(c, 3f, 9f, 1f, a, body)
-                  r(c, 11f, 9f, 1f, a, body)
-                  r(c, 5f, 9f, 1f, b, body)
-                  r(c, 9f, 9f, 1f, b, body)
+                  // ручки (при печати прыгают по очереди)
+                  val ly = if (typing) 3f + step else 3f
+                  val ry = if (typing) 4f - step else 3f
+                  r(c, 0f, ly, 2f, 3f, body)
+                  r(c, 14f, ry, 2f, 3f, body)
 
+                  // 4 тонкие короткие ножки
+                  val la = if (step == 0) 3f else 2.2f
+                  val lb = if (step == 0) 2.2f else 3f
+                  r(c, 4f, 8f, 1f, la, body)
+                  r(c, 6f, 8f, 1f, lb, body)
+                  r(c, 9f, 8f, 1f, lb, body)
+                  r(c, 11f, 8f, 1f, la, body)
+
+                  // лицо
                   when (mood) {
                       0 -> if (blink) {
-                          r(c, 4f, 3f, 1f, 0.4f, dark)
-                          r(c, 10f, 3f, 1f, 0.4f, dark)
+                          r(c, 5f, 4f, 1f, 0.4f, dark)
+                          r(c, 10f, 4f, 1f, 0.4f, dark)
                       } else {
-                          r(c, 4f, 2f, 1f, 2f, dark)
-                          r(c, 10f, 2f, 1f, 2f, dark)
+                          r(c, 5f, 3f, 1f, 2f, dark)
+                          r(c, 10f, 3f, 1f, 2f, dark)
                       }
                       1 -> {
                           val eye = listOf("010", "101")
-                          pat(c, 3, 2, eye, dark)
-                          pat(c, 9, 2, eye, dark)
-                          pat(c, 6, 5, listOf("101", "010"), dark)
+                          pat(c, 4, 3, eye, dark)
+                          pat(c, 10, 3, eye, dark)
+                          pat(c, 7, 6, listOf("101", "010"), dark)
                       }
                       2 -> {
                           val heart = listOf("101", "111", "010")
-                          pat(c, 3, 2, heart, red)
-                          pat(c, 9, 2, heart, red)
+                          pat(c, 4, 3, heart, red)
+                          pat(c, 10, 3, heart, red)
                       }
                       3 -> {
                           val x = listOf("101", "010", "101")
-                          pat(c, 3, 2, x, dark)
-                          pat(c, 9, 2, x, dark)
+                          pat(c, 4, 3, x, dark)
+                          pat(c, 10, 3, x, dark)
                       }
                       4 -> {
-                          r(c, 4f, 2f, 1f, 2f, dark)
-                          r(c, 10f, 2f, 1f, 2f, dark)
-                          r(c, 7f, 6f, 1f, 2f, dark)
+                          r(c, 5f, 3f, 1f, 2f, dark)
+                          r(c, 10f, 3f, 1f, 2f, dark)
+                          r(c, 7.5f, 6f, 1f, 1.5f, dark)
                       }
                       5 -> {
-                          r(c, 4f, 2f, 1f, 2f, dark)
-                          r(c, 10f, 2f, 1f, 2f, dark)
-                          r(c, 3f, 1f, 2f, 0.6f, dark)
-                          r(c, 10f, 1f, 2f, 0.6f, dark)
-                          r(c, 6f, 6f, 3f, 0.6f, dark)
+                          r(c, 5f, 3f, 1f, 2f, dark)
+                          r(c, 10f, 3f, 1f, 2f, dark)
+                          r(c, 4f, 2f, 2f, 0.6f, dark)
+                          r(c, 10f, 2f, 2f, 0.6f, dark)
+                          r(c, 7f, 6f, 2f, 0.6f, dark)
+                      }
+                  }
+
+                  // ноутбук: достаёт, открывает, печатает, закрывает
+                  if (typing) {
+                      val t = laptopTick
+                      if (t <= 0 || t >= 15) {
+                          r(c, 4f, 9f, 8f, 1f, lap)
+                      } else if (t == 1 || t == 14) {
+                          r(c, 4f, 7.5f, 8f, 2.5f, lap)
+                      } else {
+                          r(c, 4f, 6f, 8f, 4f, lap)
+                          r(c, 7f, 7.5f, 2f, 1f, lapDark)
+                          r(c, 3f, 10f, 10f, 0.7f, lapDark)
                       }
                   }
                   c.restore()
@@ -313,8 +349,13 @@ jobs:
                           }
                           MotionEvent.ACTION_UP -> {
                               if (!moved) {
-                                  view.mood = Random.nextInt(1, 6)
-                                  handler.postDelayed({ view.mood = 0 }, 2000)
+                                  val k = Random.nextInt(0, 6)
+                                  if (k == 0) {
+                                      view.startLaptop()
+                                  } else {
+                                      view.mood = k
+                                      handler.postDelayed({ view.mood = 0 }, 2000)
+                                  }
                               }
                           }
                       }
@@ -376,4 +417,3 @@ jobs:
         with:
           name: Clawd-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-
