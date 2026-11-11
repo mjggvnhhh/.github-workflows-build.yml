@@ -115,144 +115,154 @@ jobs:
 
           class ClawdView(ctx: Context) : View(ctx) {
 
-              private val body = Paint().apply { color = 0xFFDA7756.toInt() }
-              private val dark = Paint().apply { color = 0xFF111111.toInt() }
-              private val red = Paint().apply { color = 0xFFE8384F.toInt() }
-              private val lap = Paint().apply { color = 0xFFB5B1A8.toInt() }
-              private val lapDark = Paint().apply { color = 0xFF8E8A82.toInt() }
-              private val u = resources.displayMetrics.density * 6f
+              private val paint = Paint()
+              // одна клетка анимации (в приложении Claude клетка = 4 px на экране 2x)
+              private val s = resources.displayMetrics.density * 2.5f
 
-              // 0 обычный, 1 радостный, 2 влюблённый, 3 головокружение, 4 удивлён, 5 злой
-              var mood = 0
-                  set(v) { field = v; invalidate() }
+              // O тело, D тень, G ноутбук, E глаз, . пусто
+              // Clawd спереди: форма из иконки мода MargyC (12x8 пикселей, каждый пиксель = 2x2 клетки)
+              private val front = arrayOf(
+                  "..OOOOOOOO..",
+                  "..OEOOOOEO..",
+                  "OOOOOOOOOOOO",
+                  "OOOOOOOOOOOO",
+                  "..OOOOOOOO..",
+                  "..OOOOOOOO..",
+                  "..O.O..O.O..",
+                  "..O.O..O.O.."
+              )
 
-              private var step = 0
-              private var blink = false
-              // -1 = ноутбука нет, 0..16 = кадры анимации с ноутбуком
-              private var laptopTick = -1
+              // Анимация Laptop (Clawd в профиль с ноутбуком): 3 кадра по кругу, 12 кадров в секунду
+              private val laptop = arrayOf(
+                  arrayOf(
+                      "...............................",
+                      "...............................",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOOOOOOOOOOOOOO..........",
+                      "..DDDDOOOOOOOOOOOOOOO..........",
+                      "..DDDDOOOOOOOOOOOOOOO..........",
+                      "..DDDDOOOOOOOOOOOOOOO.......G..",
+                      "..DDDDOOOOOOOOOOOO.........GG..",
+                      "..DDDDOOOOOOOOOOOODDDD....GG...",
+                      "..DD..OO....OO..OODDDD...GG....",
+                      ".DDD.OOO...OOO.OOODDDD..GG.....",
+                      ".DD..OO....OO..OO..GGGGGG......",
+                      "...............................",
+                      "..............................."
+                  ),
+                  arrayOf(
+                      "...............................",
+                      "...............................",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOOOOOOOOOOODDDD.........",
+                      "..DDDDOOOOOOOOOOOODDDD.........",
+                      "..DDDDOOOOOOOOOOOOOOOD.........",
+                      "..DDDDOOOOOOOOOOOOOOOD......G..",
+                      "..DDDDOOOOOOOOOOOOOOOD.....GG..",
+                      "..DDDDOOOOOOOOOOOOOOO.....GG...",
+                      "..DD..OO....OO..OOOOO....GG....",
+                      ".DDD.OOO...OOO.OOO......GG.....",
+                      ".DD..OO....OO..OO..GGGGGG......",
+                      "...............................",
+                      "..............................."
+                  ),
+                  arrayOf(
+                      "...............................",
+                      "...............................",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOEEOOOOOO...............",
+                      "..DDDDOOOOOOOOOOOO.............",
+                      "..DDDDOOOOOOOOOOOOOOO..........",
+                      "..DDDDOOOOOOOOOOOOOOOD......G..",
+                      "..DDDDOOOOOOOOOOOOOOOD.....GG..",
+                      "..DDDDOOOOOOOOOOOOOOOD....GG...",
+                      "..DDDDOOOOOOOOOOOODDDD...GG....",
+                      "..DD..OO....OO..OO......GG.....",
+                      ".DDD.OOO...OOO.OOO.GGGGGG......",
+                      ".DD..OO....OO..OO..............",
+                      "...............................",
+                      "..............................."
+                  )
+              )
+
+              private var tick = 0
+              private var laptopLeft = 0
+              private var blinkLeft = 0
               private val handler = Handler(Looper.getMainLooper())
 
               fun startLaptop() {
-                  if (laptopTick < 0) laptopTick = 0
+                  if (laptopLeft == 0) laptopLeft = 96   // около 8 секунд
               }
 
-              private val walk = object : Runnable {
+              private val loop = object : Runnable {
                   override fun run() {
-                      step = 1 - step
-                      blink = Random.nextInt(6) == 0
-                      if (laptopTick >= 0) {
-                          laptopTick++
-                          if (laptopTick > 16) laptopTick = -1
-                      } else if (Random.nextInt(130) == 0) {
-                          laptopTick = 0
+                      tick++
+                      if (laptopLeft > 0) {
+                          laptopLeft--
+                      } else if (Random.nextInt(480) == 0) {
+                          laptopLeft = 96                // сам достаёт ноутбук примерно раз в 40 секунд
+                      }
+                      if (blinkLeft > 0) {
+                          blinkLeft--
+                      } else if (Random.nextInt(60) == 0) {
+                          blinkLeft = 3
                       }
                       invalidate()
-                      handler.postDelayed(this, 300)
+                      handler.postDelayed(this, 83)
                   }
               }
 
               override fun onAttachedToWindow() {
                   super.onAttachedToWindow()
-                  handler.post(walk)
+                  handler.post(loop)
               }
 
               override fun onDetachedFromWindow() {
-                  handler.removeCallbacks(walk)
+                  handler.removeCallbacks(loop)
                   super.onDetachedFromWindow()
               }
 
               override fun onMeasure(w: Int, h: Int) {
-                  setMeasuredDimension((16 * u).toInt(), (12 * u).toInt())
+                  setMeasuredDimension((31 * s).toInt(), (18 * s).toInt())
               }
 
-              private fun r(c: Canvas, x: Float, y: Float, w: Float, h: Float, p: Paint) {
-                  c.drawRect(x * u, y * u, (x + w) * u, (y + h) * u, p)
+              private fun color(ch: Char): Int = when (ch) {
+                  'O' -> 0xFFDA7756.toInt()
+                  'D' -> 0xFFB76448.toInt()
+                  'G' -> 0xFF938882.toInt()
+                  'E' -> 0xFF111111.toInt()
+                  else -> 0
               }
 
-              private fun pat(c: Canvas, x: Int, y: Int, rows: List<String>, p: Paint) {
-                  rows.forEachIndexed { j, row ->
-                      row.forEachIndexed { i, ch ->
-                          if (ch == '1') r(c, (x + i).toFloat(), (y + j).toFloat(), 1f, 1f, p)
+              private fun drawGrid(c: Canvas, rows: Array<String>, x0: Float, y0: Float, cell: Float, blink: Boolean) {
+                  for (j in rows.indices) {
+                      val row = rows[j]
+                      for (i in row.indices) {
+                          val ch = row[i]
+                          if (ch == '.') continue
+                          paint.color = if (blink && ch == 'E') color('O') else color(ch)
+                          c.drawRect(x0 + i * cell, y0 + j * cell, x0 + (i + 1) * cell, y0 + (j + 1) * cell, paint)
                       }
                   }
               }
 
               override fun onDraw(c: Canvas) {
-                  val typing = laptopTick >= 0
-                  val bob = if (typing || step == 0) 0f else 0.5f
-                  c.save()
-                  c.translate(0f, bob * u)
-
-                  // широкое приплюснутое тело
-                  r(c, 2f, 1f, 12f, 7f, body)
-
-                  // ручки (при печати прыгают по очереди)
-                  val ly = if (typing) 3f + step else 3f
-                  val ry = if (typing) 4f - step else 3f
-                  r(c, 0f, ly, 2f, 3f, body)
-                  r(c, 14f, ry, 2f, 3f, body)
-
-                  // 4 тонкие короткие ножки
-                  val la = if (step == 0) 3f else 2.2f
-                  val lb = if (step == 0) 2.2f else 3f
-                  r(c, 4f, 8f, 1f, la, body)
-                  r(c, 6f, 8f, 1f, lb, body)
-                  r(c, 9f, 8f, 1f, lb, body)
-                  r(c, 11f, 8f, 1f, la, body)
-
-                  // лицо
-                  when (mood) {
-                      0 -> if (blink) {
-                          r(c, 5f, 4f, 1f, 0.4f, dark)
-                          r(c, 10f, 4f, 1f, 0.4f, dark)
-                      } else {
-                          r(c, 5f, 3f, 1f, 2f, dark)
-                          r(c, 10f, 3f, 1f, 2f, dark)
-                      }
-                      1 -> {
-                          val eye = listOf("010", "101")
-                          pat(c, 4, 3, eye, dark)
-                          pat(c, 10, 3, eye, dark)
-                          pat(c, 7, 6, listOf("101", "010"), dark)
-                      }
-                      2 -> {
-                          val heart = listOf("101", "111", "010")
-                          pat(c, 4, 3, heart, red)
-                          pat(c, 10, 3, heart, red)
-                      }
-                      3 -> {
-                          val x = listOf("101", "010", "101")
-                          pat(c, 4, 3, x, dark)
-                          pat(c, 10, 3, x, dark)
-                      }
-                      4 -> {
-                          r(c, 5f, 3f, 1f, 2f, dark)
-                          r(c, 10f, 3f, 1f, 2f, dark)
-                          r(c, 7.5f, 6f, 1f, 1.5f, dark)
-                      }
-                      5 -> {
-                          r(c, 5f, 3f, 1f, 2f, dark)
-                          r(c, 10f, 3f, 1f, 2f, dark)
-                          r(c, 4f, 2f, 2f, 0.6f, dark)
-                          r(c, 10f, 2f, 2f, 0.6f, dark)
-                          r(c, 7f, 6f, 2f, 0.6f, dark)
-                      }
+                  if (laptopLeft > 0) {
+                      drawGrid(c, laptop[tick % 3], 0f, 0f, s, false)
+                  } else {
+                      drawGrid(c, front, 2f * s, 0f, 2f * s, blinkLeft > 0)
                   }
-
-                  // ноутбук: достаёт, открывает, печатает, закрывает
-                  if (typing) {
-                      val t = laptopTick
-                      if (t <= 0 || t >= 15) {
-                          r(c, 4f, 9f, 8f, 1f, lap)
-                      } else if (t == 1 || t == 14) {
-                          r(c, 4f, 7.5f, 8f, 2.5f, lap)
-                      } else {
-                          r(c, 4f, 6f, 8f, 4f, lap)
-                          r(c, 7f, 7.5f, 2f, 1f, lapDark)
-                          r(c, 3f, 10f, 10f, 0.7f, lapDark)
-                      }
-                  }
-                  c.restore()
               }
           }
           EOF_CLAWD
@@ -349,13 +359,7 @@ jobs:
                           }
                           MotionEvent.ACTION_UP -> {
                               if (!moved) {
-                                  val k = Random.nextInt(0, 6)
-                                  if (k == 0) {
-                                      view.startLaptop()
-                                  } else {
-                                      view.mood = k
-                                      handler.postDelayed({ view.mood = 0 }, 2000)
-                                  }
+                                  view.startLaptop()
                               }
                           }
                       }
